@@ -1,5 +1,8 @@
 # Free Sauce ETL library for GCP
 
+These scripts are GPL2 and shared for learning purposes. No warranty
+is provided, use at your own risk.
+
 ```
 # From root of repo.
 cd ac-etl/cloud-functions/email-nfe-warehouse
