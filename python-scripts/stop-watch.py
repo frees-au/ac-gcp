@@ -11,6 +11,7 @@ SERVICE_ACCOUNT_FILE = 'service-account.json'
 credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 
+# Impersonate the user
 delegated_credentials = credentials.with_subject('REDACTED@example.com')
 
 # Build the Gmail service
