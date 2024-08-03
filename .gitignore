@@ -1,0 +1,7 @@
+i
+.env.yaml
+.DS_Store
+my-venv
+service-account.json
+service-accounts/*.json
+node_modules
