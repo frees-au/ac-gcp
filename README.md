@@ -39,7 +39,10 @@ gcloud functions deploy hello-world \
 
 ## /ac-etl/cloud-functions/email-nfe-warehouse
 
-This is the Google Cloud function which is subscribed to the Pub/Sub topic. Aussie Coffee email receives XML files (NFe documents) from suppliers. These are
+Aussie Coffee email receives XML files (NFe documents) from suppliers. These are
 harvested, invoice data sent to the Data Warehouse (BigQuery), and the XML files are stored in a Storage Cloud bucket.
+
+This is a Google Cloud function which is subscribed to a Pub/Sub topic. A watch
+on a Gmail account triggers events to this topic.
 
 @see README in that directory.
