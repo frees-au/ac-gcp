@@ -70,6 +70,6 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
   };
 }
 
-ff.cloudEvent('processEmails', processEmails);
+ff.cloudEvent('processEmailXml', processEmailXml);
 
 export { processEmailXml };
