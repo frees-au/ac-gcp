@@ -8,7 +8,9 @@ bus factor.
 
 Code is copyright Simon Hobbs and Daniel Hobbs. It is licenced GPL2 so if you use or modify it you must attribute it. If you distribute the code you must include all source code. No warranty or support is provided, please use at your own risk.
 
-- Simon Hobbs (Free Sauce) and Daniel Hobbs (Aussie Coffee)
+Thanks!
+Simon Hobbs (Free Sauce)
+Daniel Hobbs (Aussie Coffee)
 
 ## Folders of interest
 
