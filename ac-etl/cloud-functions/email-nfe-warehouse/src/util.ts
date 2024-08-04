@@ -4,7 +4,30 @@ import { WebClient as SlackWebClient } from '@slack/web-api';
 import { Storage } from '@google-cloud/storage';
 import assert from 'assert';
 
+type GmailListMessagesResponse = gmail_v1.Schema$ListMessagesResponse;
+type GmailMessage = gmail_v1.Schema$Message;
+
+function isGmailListMessages(data: any): data is GmailListMessagesResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data.messages === undefined || Array.isArray(data.messages) && data.messages.every((message: { id: string; threadId: string; }) =>
+      typeof message.id === 'string' && typeof message.threadId === 'string')) &&
+    (data.nextPageToken === undefined || typeof data.nextPageToken === 'string') &&
+    (data.resultSizeEstimate === undefined || typeof data.resultSizeEstimate === 'number')
+  );
+}
+
+function isGmailMessage(data: any): data is GmailMessage {
+  return typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    typeof data.snippet === 'string' &&
+    typeof data.threadId === 'string';
+}
+
 let slack: SlackWebClient | undefined;
+let gmail: gmail_v1.Gmail | undefined;
 
 export function getEnv(name: string, defaultValue?: string): string {
   const value = process.env[name];
@@ -19,7 +42,26 @@ export function getEnv(name: string, defaultValue?: string): string {
   }
 }
 
+async function getAuthClient(keyFile: string, gmailUser: string, authScopes: string[]): Promise<any> {
+  try {
+    const auth = new GoogleAuth({
+      keyFile: `service-accounts/${keyFile}`,
+      scopes: authScopes,
+      clientOptions: {
+        subject: gmailUser,
+      }
+    });
+    return await auth.getClient();
+  }
+  catch (error) {
+    console.log([`Error getting Google Auth client for ${gmailUser}:`, error]);
+  }
+}
+
 export async function getGmailClient(): Promise<gmail_v1.Gmail> {
+  if (gmail != undefined) {
+    return gmail;
+  }
   try {
     const authClient = await getAuthClient(
       getEnv('SERVICE_ACCOUNT_GMAIL'),
@@ -33,22 +75,6 @@ export async function getGmailClient(): Promise<gmail_v1.Gmail> {
   catch(error) {
     console.log(['Error getting Gmail client', error]);
     throw new Error('Error getting Gmail client');
-  }
-}
-
-export async function getAuthClient(keyFile: string, gmailUser: string, authScopes: string[]): Promise<any> {
-  try {
-    const auth = new GoogleAuth({
-      keyFile: `service-accounts/${keyFile}`,
-      scopes: authScopes,
-      clientOptions: {
-        subject: gmailUser,
-      }
-    });
-    return await auth.getClient();
-  }
-  catch (error) {
-    console.log([`Error getting Google Auth client for ${gmailUser}:`, error]);
   }
 }
 
@@ -80,6 +106,47 @@ export async function socialiseIt(message: string): Promise<any> {
   catch (error) {
     console.log(error);
   }
+}
+
+export async function getMessages(query: string = '', label: string): Promise<GmailMessage[]> {
+  try {
+    const gmail = await getGmailClient();
+    const res = await gmail.users.messages.list({
+      userId: 'me',
+      labelIds: [label],
+      q: query,
+    });
+    assert(isGmailListMessages(res.data) == true);
+    // We deal with a small volume of messages, usually there will only
+    // be one. But this should be batched rather than loading one by one.
+    const messagePromises = res.data.messages?.map(async (message) => {
+      assert(message.id != undefined);
+      const res = await gmail.users.messages.get({
+        id: message.id,
+        userId: 'me',
+      });
+      // Not quite prepared to assert on this yet.
+      if (!isGmailMessage(res.data)) {
+        console.log(['Is there a gmail message in this response?', res]);
+      }
+      return res.data;
+    }) || [];
+    return await Promise.all(messagePromises);
+  }
+  catch (error) {
+    console.log(error);
+    throw new Error('Error retrieving messages');
+  }
+}
+
+export async function removeLabelsByMessage(messages: GmailMessage[], label: string) {
+  // await gmail.users.threads.modify({
+  //   userId: 'me',
+  //   id: thread.id,
+  //   requestBody: {
+  //     'removeLabelIds': [Ac.getEnv('GMAIL_LABEL_IN_QUEUE')]
+  //   }
+  // });
 }
 
 
