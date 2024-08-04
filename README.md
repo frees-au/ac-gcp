@@ -45,4 +45,4 @@ harvested, invoice data sent to the Data Warehouse (BigQuery), and the XML files
 This is a Google Cloud function which is subscribed to a Pub/Sub topic. A watch
 on a Gmail account triggers events to this topic.
 
-@see README in that directory.
+@see [README](https://github.com/frees-au/ac-gcp/tree/main/ac-etl/cloud-functions/email-nfe-warehouse) in that directory.
