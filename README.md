@@ -60,12 +60,17 @@ The process is roughly:
 
 It is an idempotent process. If an email is relabelled for processing, or the supplier sends duplicate XML files, the data will be replaced.
 
-Rough notes and assumptions (more can be gleaned from .env.yaml.example).
+Rough setup (also @see .env.yaml.example).
 
-  * Watch on Gmail, see python-scripts/watch.py
-  * GCP Service Account that can interact with Gmail
-  * GCP Service Account that can interact with Data Warehouse (bucket and BigQuery)
-  * BigQuery table/schema should match the data being sent
+  * Pub/Sub Topic for "email processing"
+  * Add a watch on Gmail, (@see /python-scripts) to send an event to this topic
+  * Create GCP Service Accounts, and place JSON inside service-acounts directory:
+  * * An account that can interact with Gmail
+  * * An account that can interact with Data Warehouse
+  * Delegate perms to the Gmail service account domain wide in Google WorkSpace
+  * BigQuery table/schemas for"nfe-received-xml" and "nfe-received-xml-lines"
+  * Copy .env.yaml.example to .env.yaml and update values
+  * Deploy the cloud function (below).
 
 Example deployment:
 
