@@ -1,9 +1,13 @@
 import { BigQuery } from '@google-cloud/bigquery';
 import { GoogleAuth } from 'google-auth-library';
 import * as Ac from './util';
+import { BigQueryWriteClient } from '@google-cloud/bigquery-storage';
 import assert from 'assert';
+import protobuf from 'protobufjs';
+import path from 'path';
 
 let bigQuery: BigQuery | undefined;
+const bigQueryWriteClient = new BigQueryWriteClient();
 
 export interface InvoiceRecord {
   nfeId: string; // An official NFe document identifier.
@@ -45,6 +49,37 @@ export async function getBigQueryClient(): Promise<BigQuery> {
   return bigQuery;
 }
 
+async function loadProtoSchema() {
+  // Load the proto definition file. Adjust the path and the proto definition name as needed.
+  const root = await protobuf.load(path.join(__dirname, 'path-to-your-proto-file', 'your-schema.proto'));
+  return root.lookupType('RowType'); // Adjust 'RowType' to match your proto definition
+}
+
+async function writeToBigQueryStorage(datasetId: string, tableId: string, rows: any[], RowType: protobuf.Type) {
+  const projectId = await bigQuery!.getProjectId();
+  const writeStream = `projects/${projectId}/datasets/${datasetId}/tables/${tableId}/streams/_default`;
+
+  const protoRows = rows.map(row => {
+    const errMsg = RowType.verify(row);
+    if (errMsg) throw Error(errMsg);
+
+    const message = RowType.create(row);
+    return RowType.encode(message).finish();
+  });
+
+  const request = {
+    writeStream,
+    protoRows: {
+      rows: protoRows.map(protoRow => ({
+        serializedRows: [protoRow],
+      })),
+    },
+  };
+
+  await bigQueryWriteClient.appendRows(request);
+  console.log('Rows successfully written to BigQuery');
+}
+
 export async function deleteAndInsertRecords(datasetId: string, tableId: string, rows: any[]) {
   bigQuery = await getBigQueryClient();
   assert(typeof rows[0]?.nfeId == 'string');
@@ -62,16 +97,16 @@ export async function deleteAndInsertRecords(datasetId: string, tableId: string,
     await bigQuery.query(options);
     console.log('Existing records deleted');
 
+    // Load the protobuf schema
+    const RowType = await loadProtoSchema();
+
+    // Insert new records using BigQuery Storage Write API
     try {
-      await bigQuery.dataset(datasetId).table(tableId).insert(rows);
+      await writeToBigQueryStorage(datasetId, tableId, rows, RowType);
       console.log('Data inserted successfully');
     }
     catch (err: any) {
-      if (err.name === 'PartialFailureError') {
-        console.error('Big query error ' + JSON.stringify(err.errors));
-      } else {
-        console.error('Error:', err);
-      }
+      console.error('Error inserting data:', err);
     }
 
     console.log(`Inserted ${rows.length} rows`);
