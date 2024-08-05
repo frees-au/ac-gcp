@@ -1,10 +1,10 @@
-// https://gist.github.com/brauliodavid/3a80d2f4fbced8fdbbfe54232ae9fef4
-
 import * as ff from '@google-cloud/functions-framework';
 import { MessagePublishedData } from '@google/events/cloud/pubsub/v1/MessagePublishedData';
-import * as Ac from './util';
+import NfeDocument, * as nfe from './nfe';
 import assert from 'assert';
-
+import BigQuery from '@google-cloud/bigquery';
+import * as Ac from './util';
+import * as Bq from './bigquery';
 
 async function processEmailXml(cloudEvent: any): Promise<void> {
   let pubsub: MessagePublishedData = cloudEvent.data ?? null;
@@ -38,36 +38,68 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
             userId: 'me'
           });
 
-          const stream = require('stream');
-          const bufferStream = new stream.PassThrough();
-          if (attachment?.data?.data) {
-            bufferStream.end(Buffer.from(attachment.data.data, 'base64'));
-          }
+          if (attachment?.data?.data && part?.filename) {
+            try {
+              if (!part.filename.endsWith('.xml')) {
+                console.log(`INVALID: ${part.filename}`);
+                continue;
+              }
+              console.log(`VALID: ${part.filename}`);
+              const xml = Buffer.from(attachment.data.data, 'base64').toString();
+              const nfeDocument = new NfeDocument(xml, part?.filename || 'a file');
 
-          console.log(part.filename);
+              if (nfeDocument.isNfeValid()) {
+                const invoiceRows: Bq.InvoiceRecord[] = [];
+                const invoiceLinesRows: Bq.InvoiceRecordLine[] = [];
+                invoiceRows.push({
+                  nfeId: nfeDocument.getDocumentId(),
+                  dateTime: nfeDocument.getDateTime(),
+                  nfeType: nfeDocument.getType(),
+                  supplierName: nfeDocument.getSupplierDisplayName(),
+                  supplierId: nfeDocument.getSupplierId(),
+                  invoiceNumber: nfeDocument.getInvoiceNumber(),
+                  invoiceTotal: nfeDocument.getInvoiceTotal(),
+                  description: nfeDocument.getInvoiceDescription()
+                })
 
-          const file = bucket.file(part.filename);
-//          const file = bucket.file('incoming/' + part.filename);
-          bufferStream.pipe(file.createWriteStream({
-              metadata: {
-                contentType: 'application/xml',
-                metadata: {
-                  custom: 'metadata'
+                await Bq.deleteAndInsertRecords('ac_ops_data', 'nfe-received-xml', invoiceRows);
+
+                for (const line of nfeDocument.lineItems()) {
+                  invoiceLinesRows.push(line);
                 }
-              },
-              public: false,
-              validation: "md5"
-            }))
-            .on('error', function(error: any) {
-              console.log(error);
-            })
-            .on('finish', function() {
-              // The file upload is complete.
-            });
+                await Bq.deleteAndInsertRecords('ac_ops_data', 'nfe-received-xml-lines', invoiceLinesRows);
+
+
+                // Build an invoice row.
+                // const bigqueryClient = Bq.getBigQueryClient();
+
+              }
+
+              //console.log(`${part.filename}: ${nfeDocument.getType()}`);
+              //console.log(`${part.filename} dessctiption: ${nfeDocument.getInvoiceDescription()}`);
+              // console.log([`${part.filename}`, 'yyy' + JSON.stringify(nfeDocument.supplier())]);
+              // console.log([`${part.filename}`, 'zzz' + JSON.stringify(nfeDocument.lineItems())]);
+              // console.log(nfeDocument.lineItems());
+              // console.log();
+              //console.log(`${part.filename} supplier id: ${nfeDocument.getSupplierId()}`);
+              // console.log(`${part.filename} invoice id: ${nfeDocument.getInvoiceNumber()}`);
+              //console.log(`${part.filename} invoice number: ${nfeDocument.getInvoiceNumber()}`);
+              //console.log(`Finished ${part.filename}`);
+              // console.log(nfeDocument.getInvoiceTotal());
+              console.log(nfeDocument.getDocumentId());
+            }
+            catch (error) {
+              console.log([`Error processing ${part.filename}`, error]);
+            }
+            console.log(`Finished: ${part.filename}`);
+            // Ac.writeAttachmentToBucket(bucket, part.filename, 'application/xml', attachment.data.data);
+          }
         }
       }
     }
-  };
+
+    await Ac.removeLabelsFromMessages(messages, Ac.getEnv('GMAIL_LABEL_IN_QUEUE'));
+  }
 }
 
 ff.cloudEvent('processEmailXml', processEmailXml);

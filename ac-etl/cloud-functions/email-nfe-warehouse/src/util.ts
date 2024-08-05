@@ -7,6 +7,9 @@ import assert from 'assert';
 type GmailListMessagesResponse = gmail_v1.Schema$ListMessagesResponse;
 type GmailMessage = gmail_v1.Schema$Message;
 
+let slack: SlackWebClient | undefined;
+let gmail: gmail_v1.Gmail | undefined;
+
 function isGmailListMessages(data: any): data is GmailListMessagesResponse {
   return (
     typeof data === 'object' &&
@@ -25,9 +28,6 @@ function isGmailMessage(data: any): data is GmailMessage {
     typeof data.snippet === 'string' &&
     typeof data.threadId === 'string';
 }
-
-let slack: SlackWebClient | undefined;
-let gmail: gmail_v1.Gmail | undefined;
 
 export function getEnv(name: string, defaultValue?: string): string {
   const value = process.env[name];
@@ -82,7 +82,7 @@ export async function getBucket(bucketName: string): Promise<any> {
   const keyFile: string = getEnv('SERVICE_ACCOUNT_WAREHOUSE');
   try {
     const storage = new Storage({
-      projectId: getEnv('BUCKET_PROJECT'),
+      projectId: getEnv('WAREHOUSE_PROJECT'),
       keyFilename: `service-accounts/${keyFile}`
     });
     const bucket = storage.bucket(bucketName);
@@ -139,22 +139,41 @@ export async function getMessages(query: string = '', label: string): Promise<Gm
   }
 }
 
-export async function removeLabelsByMessage(messages: GmailMessage[], label: string) {
-  // await gmail.users.threads.modify({
-  //   userId: 'me',
-  //   id: thread.id,
-  //   requestBody: {
-  //     'removeLabelIds': [Ac.getEnv('GMAIL_LABEL_IN_QUEUE')]
-  //   }
-  // });
+export async function writeAttachmentToBucket(bucket: any, filename: string, contentType: string, data: any) {
+  const stream = require('stream');
+  const file = bucket.file(filename);
+  const bufferStream = new stream.PassThrough();
+  bufferStream.end(Buffer.from(data, 'base64'));
+  bufferStream.pipe(file.createWriteStream({
+    metadata: {
+      contentType: contentType,
+      metadata: {
+        custom: 'metadata'
+      }
+    },
+    public: false,
+    validation: "md5"
+  }))
+  .on('error', function(error: any) {
+    console.log(error);
+  })
+  .on('finish', function() {
+    // The file upload is complete.
+  });
 }
 
-
-// import { Base64 } from 'js-base64';
-
-// export function decodeBase64(str: string): string {
-//   str = str.replace(/_/g, '/').replace(/-/g, '+'); // important line
-//   return Base64.atob(str);
-// }
-
-
+export async function removeLabelsFromMessages(messages: GmailMessage[], label: string) {
+  const gmail = await getGmailClient();
+  const messagePromises = messages?.map(async (message) => {
+    assert(message.id != undefined);
+    const res = await gmail.users.threads.modify({
+      userId: 'me',
+      id: message.id,
+      requestBody: {
+        'removeLabelIds': [getEnv('GMAIL_LABEL_IN_QUEUE')]
+      }
+    });
+    return res.data;
+  }) || [];
+  return await Promise.all(messagePromises);
+}
