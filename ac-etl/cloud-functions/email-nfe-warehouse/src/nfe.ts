@@ -58,57 +58,59 @@ class NfeDocument {
       let foundItems: any = {};
       let lineItems: InvoiceRecordLine[] = [];
       // console.log('get lines'  + this.nfeJson?.nfeProc?.NFe?.infNFe?.det )
-      switch (this.getType()) {
-        case 'invoice':
-          foundItems = this.nfeJson?.nfeProc?.NFe?.infNFe?.det;
-          for (const item of foundItems) {
-            // assert(typeof item?.nItem == 'number');
-            // assert(typeof item?.prod?.qCom == 'number');
-            // assert(typeof item?.prod?.qCom == 'number');
-            if (item?.nItem != undefined) {
-              lineItems.push({
-                nfeId: this.getDocumentId(),
-                lineNumber: item?.nItem || 0,
-                itemCode: item?.itemCode || '',
-                itemDesc: item?.itemDesc || '',
-                cfop: item?.prod?.CFOP || '',
-                unitCode: item?.prod?.uCom || '',
-                unitQty: item?.prod?.qCom || 0,
-                unitPrice: item?.prod?.vUnCom * 100,
-                lineTotal: item.prod.vProd * 100,
-              });
-            }
-            else {
-              lineItems.push({
-                nfeId: this.getDocumentId(),
-                lineNumber: 0,
-                itemCode: '',
-                itemDesc: `xxxx${item?.prod?.xProd}`,
-                cfop: '',
-                unitCode: '',
-                unitQty: 0,
-                unitPrice: 0,
-                lineTotal: 0,
-              });
+      if (this.getType() == 'invoice') {
+        foundItems = this.nfeJson?.nfeProc?.NFe?.infNFe?.det;
+        for (const item of foundItems) {
+          // assert(typeof item?.nItem == 'number');
+          // assert(typeof item?.prod?.qCom == 'number');
+          // assert(typeof item?.prod?.qCom == 'number');
+          // console.log(item);
+          if (item?._nItem != undefined) {
+            lineItems.push({
+              nfeId: this.getDocumentId(),
+              lineNumber: item?._nItem,
+              itemCode: item?.prod?.cProd || 'nqr',
+              itemDesc: item?.prod?.xProd,
+              cfop: item?.prod?.CFOP,
+              unitCode: item?.prod?.uCom || 'nqr',
+              unitQty: item?.prod?.qCom || 0,
+              unitPrice: Math.ceil(item.prod.vUnCom * 10000) / 10000,
+              lineTotal: Math.ceil(item?.prod?.vProd * 10000) / 10000,
+              batchSequence: 0,
+            });
+          // else {
+          //   console.log('bbbb');
+          //   lineItems.push({
+          //     nfeId: this.getDocumentId(),
+          //     lineNumber: 0,
+          //     itemCode: '',
+          //     itemDesc: `${item?.prod?.xProd}`,
+          //     cfop: '',
+          //     unitCode: '',
+          //     unitQty: 0,
+          //     unitPrice: 0,
+          //     lineTotal: 0,
+          //   });
 
-            }
           }
-
-          assert(typeof foundItems == 'object');
-        case 'service':
-          // Service XML does not have line items so derive from other values.
-          lineItems.push({
-            nfeId: this.getDocumentId(),
-            lineNumber: 0,
-            itemCode: '',
-            itemDesc: 'yyy',
-            cfop: '',
-            unitCode: '',
-            unitQty: 0,
-            unitPrice: 0,
-            lineTotal: 0,
-          });
         }
+        assert(typeof foundItems == 'object');
+      }
+      else if (this.getType() == 'service') {
+        // Service XML does not have line items so derive from other values.
+        lineItems.push({
+          nfeId: this.getDocumentId(),
+          lineNumber: 0,
+          itemCode: '',
+          itemDesc: 'yyy',
+          cfop: '',
+          unitCode: '',
+          unitQty: 0,
+          unitPrice: 0,
+          lineTotal: 0,
+          batchSequence: 0,
+        });
+      }
       return lineItems;
     }
 
@@ -130,9 +132,9 @@ class NfeDocument {
       const lineItems = this.lineItems();
       descriptions.push(`Description of ${Object.keys(lineItems).length} line items:`);
       for (let i in lineItems) {
-        descriptions.push(`; ${lineItems[i].itemDesc}`);
+        descriptions.push(`${lineItems[i].itemDesc}`);
       }
-      return descriptions.map(this.cleanDescriptiveTextForStorage).join(' ');
+      return descriptions.map(this.cleanDescriptiveTextForStorage).join('; ');
     }
 
     getSupplierId(): string {
@@ -195,7 +197,6 @@ class NfeDocument {
           value = this.nfeJson?.CompNfse?.Nfse?.InfNfse?.Servico?.Valores?.ValorLiquidoNfse;
           break;
       }
-      console.log(value);
       return Number(value);
     }
 
