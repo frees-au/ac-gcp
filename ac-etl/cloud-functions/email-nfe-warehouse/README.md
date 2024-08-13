@@ -47,6 +47,8 @@ gcloud functions deploy ac-email-processing \
   --gen2
   --trigger-topic=your-topic-id
   --env-vars-file .env.yaml
+  --max-instances=1
+  --concurrency=1
 ```
 
 Build locally (not needed to build in Cloud)

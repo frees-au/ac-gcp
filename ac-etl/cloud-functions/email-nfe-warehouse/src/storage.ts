@@ -2,6 +2,9 @@ import assert from 'assert';
 import * as Ac from './util';
 import { Storage } from '@google-cloud/storage';
 
+/**
+ * Not sure if this is being used. Needs type.
+ */
 export async function getBucket(bucketName: string): Promise<any> {
   const keyFile: string = Ac.getEnv('SERVICE_ACCOUNT_WAREHOUSE');
   try {
@@ -17,6 +20,18 @@ export async function getBucket(bucketName: string): Promise<any> {
   }
 }
 
+/**
+ * Takes a gmail attachment which is some sort of stream and chug it to a bucket.
+ *
+ * @param bucket
+ *   Needs a type.
+ * @param filename
+ *   Cna include a directory path.
+ * @param contentType
+ *   Mime type.
+ * @param data
+ *   A Gmail message attachment part thing.
+ */
 export async function writeAttachmentToBucket(bucket: any, filename: string, contentType: string, data: any) {
   const stream = require('stream');
   const file = bucket.file(filename);

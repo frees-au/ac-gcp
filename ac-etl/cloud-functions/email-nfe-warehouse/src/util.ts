@@ -1,13 +1,24 @@
 import assert from 'assert';
-import * as Bq from './bigquery';
 import { WebClient as SlackWebClient } from '@slack/web-api';
 
 let slack: SlackWebClient | undefined;
 
-function isIterable<T>(obj: any): obj is Iterable<T> {
+/**
+ * For asserting.
+ */
+export function isIterable<T>(obj: any): obj is Iterable<T> {
   return obj != undefined && obj != null && typeof obj[Symbol.iterator] === 'function';
 }
 
+/**
+ * Get a value from the .env.yaml pushed with the function.
+ *
+ * @param name
+ *   Eg "SLACK_TOKEN"
+ * @param defaultValue
+ *
+ * @returns a thing.
+ */
 export function getEnv(name: string, defaultValue?: string): string {
   const value = process.env[name];
   if (value !== undefined) {
@@ -21,6 +32,11 @@ export function getEnv(name: string, defaultValue?: string): string {
   }
 }
 
+/**
+ * Send a Slack message.
+ *
+ * @param message
+ */
 export async function socialiseIt(message: string): Promise<any> {
   try {
     if (!slack) {

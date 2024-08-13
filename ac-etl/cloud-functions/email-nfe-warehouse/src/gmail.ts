@@ -8,6 +8,31 @@ type GmailMessage = gmail_v1.Schema$Message;
 
 let gmail: gmail_v1.Gmail | undefined;
 
+/**
+ * For test with assert.
+ */
+function isGmailMessage(data: any): data is GmailMessage {
+  return typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    typeof data.snippet === 'string' &&
+    typeof data.threadId === 'string';
+}
+
+/**
+ * For test with assert.
+ */
+function isGmailListMessages(data: any): data is GmailListMessagesResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (Array.isArray(data.messages) && data.messages.every((message: { id: string; threadId: string; }) =>
+      typeof message.id === 'string' && typeof message.threadId === 'string')) &&
+    (data.nextPageToken === undefined || typeof data.nextPageToken === 'string') &&
+    (data.resultSizeEstimate === undefined || typeof data.resultSizeEstimate === 'number')
+  );
+}
+
 async function getAuthClient(keyFile: string, gmailUser: string, authScopes: string[]): Promise<any> {
   try {
     const auth = new GoogleAuth({
@@ -24,13 +49,6 @@ async function getAuthClient(keyFile: string, gmailUser: string, authScopes: str
   }
 }
 
-function isGmailMessage(data: any): data is GmailMessage {
-  return typeof data === 'object' &&
-    data !== null &&
-    typeof data.id === 'string' &&
-    typeof data.snippet === 'string' &&
-    typeof data.threadId === 'string';
-}
 
 export async function getGmailClient(): Promise<gmail_v1.Gmail> {
   if (gmail != undefined) {
@@ -52,6 +70,9 @@ export async function getGmailClient(): Promise<gmail_v1.Gmail> {
   }
 }
 
+/**
+ * Add and remove labels.
+ */
 export async function updateMessageLabels(messages: GmailMessage[], removeLabel: string, addLabel: string) {
   const gmail = await getGmailClient();
   const messagePromises = messages?.map(async (message) => {
@@ -70,6 +91,9 @@ export async function updateMessageLabels(messages: GmailMessage[], removeLabel:
   return await Promise.all(messagePromises);
 }
 
+/**
+ * Get messages by label.
+ */
 export async function getMessages(query: string = '', label: string): Promise<GmailMessage[]> {
   const gmail = await getGmailClient();
   const res = await gmail.users.messages.list({
