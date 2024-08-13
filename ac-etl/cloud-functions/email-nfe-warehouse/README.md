@@ -36,7 +36,7 @@ Rough setup (also @see .env.yaml.example).
   * Copy .env.yaml.example to .env.yaml and update values
   * Deploy the cloud function (below).
 
-Example deployment:
+Example Cloud deployment
 
 ```
 # From ac-etl/cloud-functions/email-nfe-warehouse
@@ -47,4 +47,10 @@ gcloud functions deploy ac-email-processing \
   --gen2
   --trigger-topic=your-topic-id
   --env-vars-file .env.yaml
+```
+
+Build locally (not needed to build in Cloud)
+
+```
+npx tsc
 ```

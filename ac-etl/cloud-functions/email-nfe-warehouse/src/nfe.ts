@@ -1,5 +1,5 @@
-import { XMLParser } from 'fast-xml-parser';
 import assert from 'assert';
+import { XMLParser } from 'fast-xml-parser';
 import { InvoiceRecordLine } from './bigquery';
 
 /**
@@ -22,10 +22,6 @@ class NfeDocument {
         };
         const parser = new XMLParser(options);
         this.nfeJson = parser.parse(xmlString);
-        // console.log('xxxx' + JSON.stringify(this.nfeJson));
-        // console.log(Object.keys(this.nfeJson));
-        // this.timezone = 'America/Sao_Paulo';
-        // this.debugContext = debugContext;
       }
       catch {
         console.log(`XML parsing error for ${debugContext}`);
@@ -60,11 +56,11 @@ class NfeDocument {
       // console.log('get lines'  + this.nfeJson?.nfeProc?.NFe?.infNFe?.det )
       if (this.getType() == 'invoice') {
         foundItems = this.nfeJson?.nfeProc?.NFe?.infNFe?.det;
+        if (foundItems == null || typeof foundItems[Symbol.iterator] !== 'function') {
+          // Single items are sometimes not in an array.
+          foundItems = [foundItems];
+        }
         for (const item of foundItems) {
-          // assert(typeof item?.nItem == 'number');
-          // assert(typeof item?.prod?.qCom == 'number');
-          // assert(typeof item?.prod?.qCom == 'number');
-          // console.log(item);
           if (item?._nItem != undefined) {
             lineItems.push({
               nfeId: this.getDocumentId(),
@@ -78,20 +74,6 @@ class NfeDocument {
               lineTotal: Math.ceil(item?.prod?.vProd * 10000) / 10000,
               batchSequence: 0,
             });
-          // else {
-          //   console.log('bbbb');
-          //   lineItems.push({
-          //     nfeId: this.getDocumentId(),
-          //     lineNumber: 0,
-          //     itemCode: '',
-          //     itemDesc: `${item?.prod?.xProd}`,
-          //     cfop: '',
-          //     unitCode: '',
-          //     unitQty: 0,
-          //     unitPrice: 0,
-          //     lineTotal: 0,
-          //   });
-
           }
         }
         assert(typeof foundItems == 'object');

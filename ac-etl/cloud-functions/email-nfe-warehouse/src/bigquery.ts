@@ -1,13 +1,8 @@
 import { BigQuery } from '@google-cloud/bigquery';
-import { GoogleAuth } from 'google-auth-library';
-import * as Ac from './util';
-import { BigQueryWriteClient } from '@google-cloud/bigquery-storage';
 import assert from 'assert';
-import protobuf from 'protobufjs';
-import path from 'path';
+import * as Ac from './util';
 
 let bigQuery: BigQuery | undefined;
-const bigQueryWriteClient = new BigQueryWriteClient();
 
 export interface InvoiceRecord {
   nfeId: string; // An official NFe document identifier.
@@ -17,7 +12,8 @@ export interface InvoiceRecord {
   supplierId: string; // A unique identifier for the supplier.
   invoiceNumber: string; // The invoice number.
   invoiceTotal: number; // The total amount of the invoice.
-  description: string; // A description of the invoice.
+  description: string;
+  batchSequence: number; // A description of the invoice.
 }
 
 export interface InvoiceRecordLine {
@@ -30,6 +26,7 @@ export interface InvoiceRecordLine {
   unitQty: number; // Unit quantity
   unitPrice: number; // Unit price
   lineTotal: number; // Line total
+  batchSequence: number;
 }
 
 export async function getBigQueryClient(): Promise<BigQuery> {
@@ -40,6 +37,7 @@ export async function getBigQueryClient(): Promise<BigQuery> {
     bigQuery = new BigQuery({
       projectId: Ac.getEnv('WAREHOUSE_PROJECT'),
       keyFilename: `service-accounts/${Ac.getEnv('SERVICE_ACCOUNT_WAREHOUSE')}`,
+      location: 'southamerica-east1',
     });
   }
   catch (error) {
@@ -49,69 +47,30 @@ export async function getBigQueryClient(): Promise<BigQuery> {
   return bigQuery;
 }
 
-async function loadProtoSchema() {
-  // Load the proto definition file. Adjust the path and the proto definition name as needed.
-  const root = await protobuf.load(path.join(__dirname, 'path-to-your-proto-file', 'your-schema.proto'));
-  return root.lookupType('RowType'); // Adjust 'RowType' to match your proto definition
-}
-
-async function writeToBigQueryStorage(datasetId: string, tableId: string, rows: any[], RowType: protobuf.Type) {
-  const projectId = await bigQuery!.getProjectId();
-  const writeStream = `projects/${projectId}/datasets/${datasetId}/tables/${tableId}/streams/_default`;
-
-  const protoRows = rows.map(row => {
-    const errMsg = RowType.verify(row);
-    if (errMsg) throw Error(errMsg);
-
-    const message = RowType.create(row);
-    return RowType.encode(message).finish();
-  });
-
-  const request = {
-    writeStream,
-    protoRows: {
-      rows: protoRows.map(protoRow => ({
-        serializedRows: [protoRow],
-      })),
-    },
-  };
-
-  await bigQueryWriteClient.appendRows(request);
-  console.log('Rows successfully written to BigQuery');
-}
-
-export async function deleteAndInsertRecords(datasetId: string, tableId: string, rows: any[]) {
+export async function insertInvoiceRecords(invoices: InvoiceRecord[], invoiceLines: InvoiceRecordLine[], logId: string) {
   bigQuery = await getBigQueryClient();
-  assert(typeof rows[0]?.nfeId == 'string');
-
+  const datasetId: string = 'ac_ops_data';
+  const invoiceTableId = 'nfe-received-xml';
+  const invoiceLinesTableId = 'nfe-received-xml-lines';
   try {
-    // Delete existing records with the same nfeId
-    const deleteQuery = `
-      DELETE FROM \`${datasetId}.${tableId}\`
-      WHERE nfeId = @nfeId
-    `;
-    const options = {
-      query: deleteQuery,
-      params: { nfeId: rows[0].nfeId },
-    };
-    await bigQuery.query(options);
-    console.log('Existing records deleted');
-
-    // Load the protobuf schema
-    const RowType = await loadProtoSchema();
-
-    // Insert new records using BigQuery Storage Write API
-    try {
-      await writeToBigQueryStorage(datasetId, tableId, rows, RowType);
-      console.log('Data inserted successfully');
-    }
-    catch (err: any) {
-      console.error('Error inserting data:', err);
-    }
-
-    console.log(`Inserted ${rows.length} rows`);
+    assert(typeof invoices[0]?.nfeId == 'string');
   }
   catch (error) {
-    console.error('Error during delete and insert operation:', error);
+    console.log(`${logId}: Unexpected invoice ID, dumping all rows.`, invoices);
+    return;
+  }
+
+  try {
+    await bigQuery.dataset(datasetId).table(invoiceLinesTableId).insert(invoiceLines);
+    console.log(`${logId}/Inserted ${invoiceLines.length} invoice lines`);
+    await bigQuery.dataset(datasetId).table(invoiceTableId).insert(invoices);
+    console.log(`${logId}/Inserted ${invoices.length} invoice headers`);
+  }
+  catch (err: any) {
+    if (err.name === 'PartialFailureError') {
+      console.error(`${logId}/BigQuery PartialFailureError` + JSON.stringify(err.errors));
+    } else {
+      console.error(`${logId}/BigQuery other error:`, err);
+    }
   }
 }

@@ -1,6 +1,7 @@
 i
 .env.yaml
 .DS_Store
+dist
 my-venv
 service-account.json
 service-accounts/*.json
