@@ -34,9 +34,10 @@ export async function getBigQueryClient(): Promise<BigQuery> {
     return bigQuery;
   }
   try {
+    const serviceAccountKey = await Ac.getSecret(Ac.getEnv('SECRET_ACCOUNT_FOR_WAREHOUSE'));
     bigQuery = new BigQuery({
       projectId: Ac.getEnv('WAREHOUSE_PROJECT'),
-      keyFilename: `service-accounts/${Ac.getEnv('SERVICE_ACCOUNT_WAREHOUSE')}`,
+      credentials: JSON.parse(serviceAccountKey),
       location: 'southamerica-east1',
     });
   }

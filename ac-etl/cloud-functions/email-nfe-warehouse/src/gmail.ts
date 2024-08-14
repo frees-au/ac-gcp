@@ -35,8 +35,9 @@ function isGmailListMessages(data: any): data is GmailListMessagesResponse {
 
 async function getAuthClient(keyFile: string, gmailUser: string, authScopes: string[]): Promise<any> {
   try {
+    const serviceAccountKey = await Ac.getSecret(Ac.getEnv('SECRET_ACCOUNT_FOR_GMAIL'));
     const auth = new GoogleAuth({
-      keyFile: `service-accounts/${keyFile}`,
+      credentials: JSON.parse(serviceAccountKey),
       scopes: authScopes,
       clientOptions: {
         subject: gmailUser,
@@ -49,14 +50,13 @@ async function getAuthClient(keyFile: string, gmailUser: string, authScopes: str
   }
 }
 
-
 export async function getGmailClient(): Promise<gmail_v1.Gmail> {
   if (gmail != undefined) {
     return gmail;
   }
   try {
     const authClient = await getAuthClient(
-      Ac.getEnv('SERVICE_ACCOUNT_GMAIL'),
+      'na',
       Ac.getEnv('GMAIL_USER'),
       ['https://www.googleapis.com/auth/gmail.modify']
     );

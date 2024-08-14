@@ -1,7 +1,9 @@
 import assert from 'assert';
 import { WebClient as SlackWebClient } from '@slack/web-api';
+import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 
 let slack: SlackWebClient | undefined;
+let secrets: SecretManagerServiceClient | undefined;
 
 /**
  * For asserting.
@@ -40,7 +42,8 @@ export function getEnv(name: string, defaultValue?: string): string {
 export async function socialiseIt(message: string): Promise<any> {
   try {
     if (!slack) {
-      slack = new SlackWebClient(getEnv('SLACK_TOKEN'));
+      const token = await getSecret(getEnv('SECRET_SLACK_TOKEN'));
+      slack = new SlackWebClient(token);
     }
     const result = await slack.chat.postMessage({
       text: message,
@@ -67,4 +70,22 @@ export function getBatchSequence(): number {
   const month: string = (now.getMonth() + 1).toString().padStart(2, '0');
   const day: string = now.getDate().toString().padStart(2, '0');
   return ((parseFloat(`${year}${month}${day}`) * 1e5) + secondsPassed) / 1e5;
+}
+
+/**
+ * Get a secret by resource name.
+ */
+export async function getSecret(secretResourceName: string): Promise<string> {
+  if (!secrets) {
+    secrets = new SecretManagerServiceClient();
+  }
+  const [version] = await secrets.accessSecretVersion({
+    name: `${secretResourceName}/versions/latest`,
+  });
+
+  const secret = version.payload?.data?.toString();
+  if (!secret) {
+    throw new Error(`Secret is empty or not found`);
+  }
+  return secret;
 }

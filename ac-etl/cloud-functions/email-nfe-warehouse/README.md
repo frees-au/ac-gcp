@@ -28,9 +28,7 @@ Rough setup (also @see .env.yaml.example).
 
   * Pub/Sub Topic for "email processing"
   * Add a watch on Gmail, (@see /python-scripts) to send an event to this topic
-  * Create GCP Service Accounts, and place JSON inside service-acounts directory:
-    - One that can interact with Gmail
-    - One that can interact with Data Warehouse
+  * Secrets for the service accounts needed.
   * Delegate perms to the Gmail service account domain wide in Google WorkSpace
   * BigQuery table/schemas for"nfe-received-xml" and "nfe-received-xml-lines"
   * Copy .env.yaml.example to .env.yaml and update values
