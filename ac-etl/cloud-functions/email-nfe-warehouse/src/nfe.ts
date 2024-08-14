@@ -79,16 +79,17 @@ class NfeDocument {
     }
     else if (this.getType() == 'service') {
       // Service XML does not have line items so derive from other values.
+      const service = this.getService();
       lineItems.push({
         nfeId: this.getDocumentId(),
-        lineNumber: 0,
-        itemCode: '',
-        itemDesc: 'yyy',
-        cfop: '',
-        unitCode: '',
-        unitQty: 0,
-        unitPrice: 0,
-        lineTotal: 0,
+        lineNumber: 1,
+        itemCode: service?.ItemListaServico,
+        itemDesc: this.cleanDescriptiveTextForStorage(service?.Discriminacao),
+        cfop: service?.CodigoTributacaoMunicipio,
+        unitCode: "service",
+        unitQty: 1,
+        unitPrice: service?.Valores?.ValorServicos,
+        lineTotal: service?.Valores?.ValorServicos,
         batchSequence: 0,
       });
     }
@@ -106,6 +107,13 @@ class NfeDocument {
       descriptions.push(`${lineItems[i].itemDesc}`);
     }
     return descriptions.map(this.cleanDescriptiveTextForStorage).join('; ');
+  }
+
+  /**
+   *
+   */
+  getService() {
+    return this.nfeJson?.CompNfse?.Nfse?.InfNfse?.Servico;
   }
 
   /**

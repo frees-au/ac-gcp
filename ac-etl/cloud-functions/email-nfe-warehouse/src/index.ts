@@ -75,17 +75,32 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
 
               if (nfeDocument.isNfeValid()) {
                 console.log(`${logId}/VALID: ${part.filename} is a/an ${nfeDocument.getType()} record for ${nfeDocument.getSupplierDisplayName()}`);
-                invoiceRows.push({
-                  nfeId: nfeDocument.getDocumentId(),
-                  dateTime: nfeDocument.getDateTime(),
-                  nfeType: nfeDocument.getType(),
-                  supplierName: nfeDocument.getSupplierDisplayName(),
-                  supplierId: nfeDocument.getSupplierId(),
-                  invoiceNumber: nfeDocument.getInvoiceNumber(),
-                  invoiceTotal: nfeDocument.getInvoiceTotal(),
-                  description: nfeDocument.getInvoiceDescription(),
-                  batchSequence: batchSequence
-                })
+                if (nfeDocument.getType() == 'invoice') {
+                  invoiceRows.push({
+                    nfeId: nfeDocument.getDocumentId(),
+                    dateTime: nfeDocument.getDateTime(),
+                    nfeType: nfeDocument.getType(),
+                    supplierName: nfeDocument.getSupplierDisplayName(),
+                    supplierId: nfeDocument.getSupplierId(),
+                    invoiceNumber: nfeDocument.getInvoiceNumber(),
+                    invoiceTotal: nfeDocument.getInvoiceTotal(),
+                    description: nfeDocument.getInvoiceDescription(),
+                    batchSequence: batchSequence
+                  });
+                }
+                else {
+                  invoiceRows.push({
+                    nfeId: nfeDocument.getDocumentId(),
+                    dateTime: nfeDocument.getDateTime(),
+                    nfeType: nfeDocument.getType(),
+                    supplierName: nfeDocument.getSupplierDisplayName(),
+                    supplierId: nfeDocument.getSupplierId(),
+                    invoiceNumber: nfeDocument.getInvoiceNumber(),
+                    invoiceTotal: nfeDocument.getInvoiceTotal(),
+                    description: nfeDocument.getInvoiceDescription(),
+                    batchSequence: batchSequence
+                  });
+                }
 
                 // @todo need to error handle this to send a slack message when issues. This email x@a.b has an issue!
                 for (const line of nfeDocument.lineItems()) {
@@ -112,6 +127,8 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
   if (invoiceRows.length > 0 || invoiceLinesRows.length > 0) {
 
     try {
+      console.log(invoiceRows);
+      console.log(invoiceLinesRows);
       await Bq.insertInvoiceRecords(invoiceRows, invoiceLinesRows, logId);
     }
     catch (error) {
