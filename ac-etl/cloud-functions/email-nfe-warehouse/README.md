@@ -6,6 +6,8 @@ on a Gmail account triggers events to this topic.
 Aussie Coffee email receives XML files (NFe documents) from suppliers. These are
 harvested, invoice data sent to the Data Warehouse (BigQuery), and the XML files are stored in a Storage Cloud bucket.
 
+![Data Flow](https://raw.githubusercontent.com/frees-au/ac-gcp/main/ac-etl/cloud-functions/email-nfe-warehouse/data-flow.png)
+
 NFe stands for “Nota Fiscal Eletrônica,” which is an electronic invoice used in Brazil. NFe (XML) files coming in via email is a really good source of truth, since even the smallest suppliers are able to provide these XML files and are obligated by law.
 
 The process is scaled around a small business (a few XML files per day). Some improvements would be done around batching at larger scales. Otherwise it's fairly
