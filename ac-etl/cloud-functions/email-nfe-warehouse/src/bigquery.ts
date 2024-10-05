@@ -7,18 +7,19 @@ let bigQuery: BigQuery | undefined;
 export interface InvoiceRecord {
   nfeId: string; // An official NFe document identifier.
   dateTime: string; // The date and time when the invoice was issued, in ISO 8601 format.
-  nfeType: string; // The type of NFe document, including various document types such as events and NFSe.
-  supplierName: string; // The name of the supplier.
+  dateDue: string; // Due date (dVenc).
   supplierId: string; // A unique identifier for the supplier.
-  invoiceNumber: string; // The invoice number.
+  supplierInvoiceId: string; // The invoice number.
+  supplierName: string; // The name of the supplier.
+  nfeType: string; // The type of NFe document, including various document types such as events and NFSe.
   invoiceTotal: number; // The total amount of the invoice.
-  description: string;
+  verboseDescription: string;
   batchSequence: number; // A description of the invoice.
 }
 
 export interface InvoiceRecordLine {
   nfeId: string; // An official NFe document identifier
-  lineNumber: number; // Line number
+  lineNo: number; // Line number
   itemCode: string; // As defined by the supplier
   itemDesc: string; // Description of the item, which might change from invoice to invoice, used for ML
   cfop: string; // A four-digit Brazilian NFe code
@@ -51,8 +52,8 @@ export async function getBigQueryClient(): Promise<BigQuery> {
 export async function insertInvoiceRecords(invoices: InvoiceRecord[], invoiceLines: InvoiceRecordLine[], logId: string) {
   bigQuery = await getBigQueryClient();
   const datasetId: string = 'ac_ops_data';
-  const invoiceTableId = 'nfe-received-xml';
-  const invoiceLinesTableId = 'nfe-received-xml-lines';
+  const invoiceTableId = 'base-nfe-supplier-invoice';
+  const invoiceLinesTableId = 'base-nfe-supplier-invoice-line';
   try {
     assert(typeof invoices[0]?.nfeId == 'string');
   }

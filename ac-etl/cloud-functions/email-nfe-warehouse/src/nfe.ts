@@ -63,7 +63,7 @@ class NfeDocument {
         if (item?._nItem != undefined) {
           lineItems.push({
             nfeId: this.getDocumentId(),
-            lineNumber: item?._nItem,
+            lineNo: item?._nItem,
             itemCode: item?.prod?.cProd || 'nqr',
             itemDesc: item?.prod?.xProd,
             cfop: item?.prod?.CFOP,
@@ -82,7 +82,7 @@ class NfeDocument {
       const service = this.getService();
       lineItems.push({
         nfeId: this.getDocumentId(),
-        lineNumber: 1,
+        lineNo: 1,
         itemCode: service?.ItemListaServico,
         itemDesc: this.cleanDescriptiveTextForStorage(service?.Discriminacao),
         cfop: service?.CodigoTributacaoMunicipio,
@@ -159,6 +159,26 @@ class NfeDocument {
   getSupplierDisplayName(): string {
     const supplier = this.supplier();
     return supplier?.xFant || supplier?.xNome || supplier?.RazaoSocial;
+  }
+
+  /**
+   * The due date of the invoice
+   */
+  getDueDate(): string {
+    let dateStr = '';
+    try {
+      switch (this.getType()) {
+        case 'invoice':
+          dateStr = this.nfeJson?.nfeProc?.NFe?.infNFe?.cobr?.dup?.dVenc;
+          break;
+        case 'service':
+          dateStr = this.nfeJson?.CompNfse?.Nfse?.InfNfse?.DataEmissao;
+          break;
+      }
+    } catch (err) {}
+    let date = new Date(dateStr);
+    dateStr = date.toISOString().slice(0, 19).replace("T", " ");
+    return dateStr;
   }
 
   /**

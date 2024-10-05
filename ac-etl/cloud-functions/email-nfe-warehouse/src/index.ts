@@ -79,12 +79,13 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
                   invoiceRows.push({
                     nfeId: nfeDocument.getDocumentId(),
                     dateTime: nfeDocument.getDateTime(),
+                    dateDue: nfeDocument.getDueDate(),
                     nfeType: nfeDocument.getType(),
                     supplierName: nfeDocument.getSupplierDisplayName(),
                     supplierId: nfeDocument.getSupplierId(),
-                    invoiceNumber: nfeDocument.getInvoiceNumber(),
+                    supplierInvoiceId: nfeDocument.getInvoiceNumber(),
                     invoiceTotal: nfeDocument.getInvoiceTotal(),
-                    description: nfeDocument.getInvoiceDescription(),
+                    verboseDescription: nfeDocument.getInvoiceDescription(),
                     batchSequence: batchSequence
                   });
                 }
@@ -92,12 +93,13 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
                   invoiceRows.push({
                     nfeId: nfeDocument.getDocumentId(),
                     dateTime: nfeDocument.getDateTime(),
+                    dateDue: nfeDocument.getDueDate(),
                     nfeType: nfeDocument.getType(),
                     supplierName: nfeDocument.getSupplierDisplayName(),
                     supplierId: nfeDocument.getSupplierId(),
-                    invoiceNumber: nfeDocument.getInvoiceNumber(),
+                    supplierInvoiceId: nfeDocument.getInvoiceNumber(),
                     invoiceTotal: nfeDocument.getInvoiceTotal(),
-                    description: nfeDocument.getInvoiceDescription(),
+                    verboseDescription: nfeDocument.getInvoiceDescription(),
                     batchSequence: batchSequence
                   });
                 }
@@ -127,8 +129,8 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
   if (invoiceRows.length > 0 || invoiceLinesRows.length > 0) {
 
     try {
-      console.log(invoiceRows);
-      console.log(invoiceLinesRows);
+      // console.log(invoiceRows);
+      // console.log(invoiceLinesRows);
       await Bq.insertInvoiceRecords(invoiceRows, invoiceLinesRows, logId);
     }
     catch (error) {
