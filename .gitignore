@@ -1,8 +1,8 @@
-i
+.env
 .env.yaml
 .DS_Store
 dist
-my-venv
+venv
 service-account.json
 service-accounts/*.json
 node_modules
