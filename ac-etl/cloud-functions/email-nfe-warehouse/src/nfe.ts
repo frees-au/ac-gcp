@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { XMLParser } from 'fast-xml-parser';
+import { XMLParser, X2jOptions } from 'fast-xml-parser';
 import { InvoiceRecordLine } from './bigquery';
 
 /**
@@ -13,15 +13,28 @@ class NfeDocument {
 
   constructor(xmlString: string, debugContext: string) {
     try {
-      const options = {
+      const options: X2jOptions = {
         ignoreAttributes: false,
-        attributeNamePrefix : "_"
+        attributeNamePrefix: "_",
+        parseAttributeValue: true,
+        trimValues: true,
+        // Disable entity expansion to prevent XXE attacks
+        processEntities: false,
+        // Ignore DOCTYPE declarations
+        ignoreDeclaration: true,
+        ignorePiTags: true,
+        // Set a reasonable limit for string lengths
+        tagValueProcessor: (tagName: string, tagValue: string) =>
+          tagValue.length > 1000 ? tagValue.slice(0, 1000) : tagValue,
       };
+
       const parser = new XMLParser(options);
       this.nfeJson = parser.parse(xmlString);
     }
-    catch {
-      console.log(`XML parsing error for ${debugContext}`);
+    catch (error: any) {
+      console.error(`XML parsing error for ${debugContext}:`, error);
+      // Consider throwing a custom error or handling this case appropriately
+      throw new Error(`Failed to parse XML: ${error.message}`);
     }
   }
 
@@ -169,13 +182,16 @@ class NfeDocument {
     try {
       switch (this.getType()) {
         case 'invoice':
-          dateStr = this.nfeJson?.nfeProc?.NFe?.infNFe?.cobr?.dup?.dVenc;
+          // Sometimes no due date.
+          dateStr = this.nfeJson?.nfeProc?.NFe?.infNFe?.cobr?.dup?.dVenc || this.getDateTime();
           break;
         case 'service':
           dateStr = this.nfeJson?.CompNfse?.Nfse?.InfNfse?.DataEmissao;
           break;
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error(`Date fail for ${dateStr}:`, err);
+    }
     let date = new Date(dateStr);
     dateStr = date.toISOString().slice(0, 19).replace("T", " ");
     return dateStr;
@@ -195,7 +211,9 @@ class NfeDocument {
           dateStr = this.nfeJson?.CompNfse?.Nfse?.InfNfse?.DataEmissao;
           break;
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error(`Date fail for ${dateStr}:`, err);
+    }
     let date = new Date(dateStr);
     dateStr = date.toISOString().slice(0, 19).replace("T", " ");
     return dateStr;

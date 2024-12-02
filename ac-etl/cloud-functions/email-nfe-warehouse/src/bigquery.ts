@@ -1,4 +1,4 @@
-import { BigQuery } from '@google-cloud/bigquery';
+import { BigQuery, RowsResponse } from '@google-cloud/bigquery';
 import assert from 'assert';
 import * as Ac from './util';
 
@@ -49,6 +49,34 @@ export async function getBigQueryClient(): Promise<BigQuery> {
   return bigQuery;
 }
 
+export async function coundExistingByNfeId(nfeId: string): Promise<number> {
+  const bigQuery = await getBigQueryClient();
+  const datasetId: string = 'ac_ops_data';
+  const invoiceTableId = 'base-nfe-supplier-invoice';
+
+  try {
+    // Build the query to filter rows based on the column and value
+    const query = `
+        SELECT *
+        FROM \`${datasetId}.${invoiceTableId}\`
+        WHERE ${nfeId} = @filterValue
+    `;
+    const options = {
+        query,
+        params: { nfeId },
+    };
+    const [rows] = await bigQuery.query(options);
+    const rowCount = rows.length;
+
+    console.log(`Number of rows retrieved: ${rowCount}`);
+    return rowCount;
+  }
+  catch (error) {
+    console.error('Error retrieving filtered rows from BigQuery:', error);
+    throw error;
+  }
+}
+
 export async function insertInvoiceRecords(invoices: InvoiceRecord[], invoiceLines: InvoiceRecordLine[], logId: string) {
   bigQuery = await getBigQueryClient();
   const datasetId: string = 'ac_ops_data';
@@ -69,6 +97,7 @@ export async function insertInvoiceRecords(invoices: InvoiceRecord[], invoiceLin
     console.log(`${logId}/Inserted ${invoices.length} invoice headers`);
   }
   catch (err: any) {
+    Ac.socialiseIt(`:grimacing: There was a BigQuery error, probably not good. (${logId})`);
     if (err.name === 'PartialFailureError') {
       console.error(`${logId}/BigQuery PartialFailureError` + JSON.stringify(err.errors));
     } else {

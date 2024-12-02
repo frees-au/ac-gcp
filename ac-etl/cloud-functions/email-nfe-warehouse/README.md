@@ -42,12 +42,12 @@ Example Cloud deployment
 # From ac-etl/cloud-functions/email-nfe-warehouse
 
 gcloud functions deploy ac-email-processing \
-  --entry-point processEmails
-  --runtime nodejs18
-  --gen2
-  --trigger-topic=your-topic-id
-  --env-vars-file .env.yaml
-  --max-instances=1
+  --entry-point processEmails \
+  --runtime nodejs18 \
+  --gen2 \
+  --trigger-topic=your-topic-id \
+  --env-vars-file .env.yaml \
+  --max-instances=1 \
   --concurrency=1
 ```
 

@@ -6,8 +6,6 @@ import * as St from './storage';
 import * as ff from '@google-cloud/functions-framework';
 import { MessagePublishedData } from '@google/events/cloud/pubsub/v1/MessagePublishedData';
 import NfeDocument, * as nfe from './nfe';
-// import BigQuery from '@google-cloud/bigquery';
-// import { isMemberName } from 'typescript';
 
 async function processEmailXml(cloudEvent: any): Promise<void> {
 
@@ -41,23 +39,33 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
     Ac.getEnv('GMAIL_LABEL_IN_QUEUE'),
   );
 
-  if (message.length == 0) {
+  if (messages.length == 0) {
     console.log(`${logId}: Nothing found process, perhaps it recently ran.`);
   }
+  else {
+    Ac.socialiseIt(`:man-running: Started processing ${messages.length} tagged email(s) with batch sequence ${batchSequence}.`);
+  }
+
+  let messagesProcessed = 0;
+  let timePassed = 0;
 
   // Keeping this basic and procedural while working out the kinks.
   for (const message of messages) {
     console.log(`${logId}: ${message.snippet}`);
 
     const currentTime = new Date();
-    if ((startTime.getTime() - currentTime.getTime()) > 3e4) {
+    timePassed = currentTime.getTime() - startTime.getTime();
+    console.log(`${logId}: Passed: ${timePassed}, processed: ${messagesProcessed}`);
+    if (timePassed > 3e4) {
       // Only process for 30 seconds or so.
+      console.log(`${logId}: Passed: ${timePassed}, processed: ${messagesProcessed}`);
       continue;
     }
 
     if (message?.payload?.parts) {
       for (const part of message.payload.parts) {
         if (part?.body?.attachmentId && message.id) {
+          const messageLink = `https://mail.google.com/mail/u/1/#inbox/${message.id}`;
           const attachment = await gmail.users.messages.attachments.get({
             id: part.body.attachmentId,
             messageId: message.id,
@@ -67,13 +75,20 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
           if (attachment?.data?.data && part?.filename) {
             try {
               if (!part.filename.endsWith('.xml')) {
-                console.log(`${logId}/IGNORE: ${part.filename}`);
+                // console.log(`${logId}/IGNORE: ${part.filename}`);
                 continue;
               }
               const xml = Buffer.from(attachment.data.data, 'base64').toString();
               const nfeDocument = new NfeDocument(xml, part?.filename || 'a file');
+              const existingCount = await Bq.coundExistingByNfeId(nfeDocument.getDocumentId());
 
-              if (nfeDocument.isNfeValid()) {
+              if (existingCount > 0) {
+                console.log(`${logId}/SKIP: stubbornly refusing to re-add ${nfeDocument.getDocumentId()} for ${nfeDocument.getSupplierDisplayName()}`);
+                Ac.socialiseIt(`:sweat_smile: oops looks like ${nfeDocument.getDocumentId()} for ${nfeDocument.getSupplierDisplayName()} was already processed!`);
+                continue;
+              }
+
+              if (nfeDocument.isNfeValid() && existingCount < 1) {
                 console.log(`${logId}/VALID: ${part.filename} is a/an ${nfeDocument.getType()} record for ${nfeDocument.getSupplierDisplayName()}`);
                 if (nfeDocument.getType() == 'invoice') {
                   invoiceRows.push({
@@ -88,6 +103,7 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
                     verboseDescription: nfeDocument.getInvoiceDescription(),
                     batchSequence: batchSequence
                   });
+
                 }
                 else {
                   invoiceRows.push({
@@ -116,7 +132,8 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
               }
             }
             catch (error) {
-              console.log([`${logId}/Error processing ${part.filename}`, error]);
+              console.error([`${logId}/Error processing`, error]);
+              Ac.socialiseIt(`:thinking_face: Error processing NFe data for <${messageLink}|${part.filename}> (${logId})}`);
             }
             // console.log(`${logId}/Finished: ${part.filename}`);
             // Ac.writeAttachmentToBucket(bucket, part.filename, 'application/xml', attachment.data.data);
@@ -124,6 +141,8 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
         }
       }
     }
+    messagesProcessed++;
+    console.log(`${logId}/Error processing`)
   }
 
   if (invoiceRows.length > 0 || invoiceLinesRows.length > 0) {
@@ -135,7 +154,7 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
     }
     catch (error) {
       console.log("There was an error inserting records.", error);
-      Ac.socialiseIt(`There was an error inserting invoices to the data warehouse, data my be inaccurate for these suppliers: ${suppliers.join(", ")}`);
+      Ac.socialiseIt(`:thinking_face: There was an error inserting invoices to the data warehouse, data my be inaccurate for these suppliers: ${suppliers.join(", ")}`);
       return;
     }
 
@@ -143,18 +162,20 @@ async function processEmailXml(cloudEvent: any): Promise<void> {
       await Gm.updateMessageLabels(messages, Ac.getEnv('GMAIL_LABEL_IN_QUEUE'), Ac.getEnv('GMAIL_LABEL_DONE'));
     }
     catch (error) {
-      console.log("There was an error updating labels.", error);
-      Ac.socialiseIt(`There was an error updating \`ops/in-queue\` and :white_check_mark labels, which may cause period duplicate records for these suppliers: ${suppliers.join(", ")}`);
+      console.log(`${logId}: There was an error updating labels.`, error);
+      Ac.socialiseIt(`:thinking_face: There was an error updating \`ops/in-queue\` and \`ops/done\` labels, which may cause duplicate records for these suppliers: ${suppliers.join(", ")}. (${batchSequence})`);
     }
 
-    console.log(`${logId}: Completed processing ${messages.length} email(s).`);
-    Ac.socialiseIt(`Processed ${messages.length} tagged email(s) and imported ${invoiceRows.length} NFe documents for these suppliers: ${suppliers.join(", ")}`);
+    const currentTime = new Date();
+    timePassed = Math.round((currentTime.getTime() - startTime.getTime()) / 1000);
+    console.log(`${logId}: Completed processing ${messagesProcessed} email(s).`);
+    Ac.socialiseIt(`:white_check_mark: Processed ${messagesProcessed} tagged email(s) and imported ${invoiceRows.length} NFe documents for these suppliers: ${suppliers.join(", ")}. The cloud function ran for about ${timePassed} seconds, with batch sequence ${batchSequence}.`);
   }
   else {
     console.log(`${logId}: Nothing found process.`);
+    Ac.socialiseIt(`:white_check_mark: No documents found to process.`);
   }
 }
 
 ff.cloudEvent('processEmailXml', processEmailXml);
-
 export { processEmailXml };

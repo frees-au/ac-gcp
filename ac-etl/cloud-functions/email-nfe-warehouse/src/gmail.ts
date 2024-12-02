@@ -46,7 +46,7 @@ async function getAuthClient(keyFile: string, gmailUser: string, authScopes: str
     return await auth.getClient();
   }
   catch (error) {
-    console.log([`Error getting Google Auth client for ${gmailUser}:`, error]);
+    console.error([`Error getting Google Auth client for ${gmailUser}:`, error]);
   }
 }
 
@@ -65,7 +65,7 @@ export async function getGmailClient(): Promise<gmail_v1.Gmail> {
     return gmail;
   }
   catch(error) {
-    console.log(['Error getting Gmail client', error]);
+    console.error(['Error getting Gmail client', error]);
     throw new Error('Error getting Gmail client');
   }
 }
@@ -108,7 +108,7 @@ export async function getMessages(query: string = '', label: string): Promise<Gm
   }
   catch (error) {
     if (res.data.resultSizeEstimate == undefined ) {
-      console.log("Not iterable?", res.data);
+      console.error("Not iterable?", res.data);
       throw new Error("Messages from Gmail were not iterable gmail messages. See log.");
     }
     return [];
@@ -147,14 +147,14 @@ export async function getMessages(query: string = '', label: string): Promise<Gm
       });
       // Not quite prepared to assert on this yet.
       if (!isGmailMessage(res.data)) {
-        console.log(["Probably fatal.. there a gmail message in this response?", res]);
+        console.error(["Probably fatal.. there a gmail message in this response?", res]);
       }
       return res.data;
     }) || [];
     return await Promise.all(messagePromises);
   }
   catch (error) {
-    console.log(error);
+    console.error(error);
     throw new Error("Failed to load all gmail messages.")
   }
 }
