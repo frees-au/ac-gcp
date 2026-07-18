@@ -9,7 +9,7 @@
         "@google-cloud/storage": "^7.12.0",
         "@google/events": "^5.4.0",
         "@slack/web-api": "^6.9.0",
-        "fast-xml-parser": "^4.4.1",
+        "fast-xml-parser": "^5.0.0",
         "google-auth-library": "^9.13.0",
         "googleapis": "^105.0.0",
         "js-base64": "^3.7.7",
